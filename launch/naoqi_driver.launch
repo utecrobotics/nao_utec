@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<!-- Adapted from naoqi_driver_py/launch/naoqi_driver.launch -->
+
+<launch>
+  <!--
+      Start Nao control and sensor nodes so that they can either:
+      a) Connect to a local NaoQI (e.g. local simulated one or when running
+         directly on the robot).
+      b) Connect to the real NAO (remotely) changing the IP and port
+         accordingly in the NAO_IP and NAO_PORT environment variables.
+  -->
+
+  <!-- Push the local PYTHONPATH into the launch file (to find NaoQI API) -->
+  <env name="PYTHONPATH" value="$(env PYTHONPATH)" />
+
+  <arg name="nao_ip" default="$(optenv NAO_IP 127.0.0.1)"
+       doc="Robot IP address. On robot or Local NaoQI" />
+  <arg name="nao_port" default="$(optenv NAO_PORT 9559)"
+       doc="NaoQI port number" />
+
+  <arg name="use_odometry" default="true"
+       doc="flag to publish odometry from naoqi_driver default:true "/>
+
+  <!-- Node that reads the joint values, joint stiffness, IMU and odometry from
+       NAOqi and publishes them in the following ROS topics (threading):
+       * /odom (motionProxy.getPosition('Torso', motion.SPACE_WORLD, True))
+       * /imu (self.memProxy.getListData(self.dataNamesList))
+       * /joint_states (motionProxy.getAngles('Body', self.useJointSensors))
+       * /joint_stiffness (motionProxy.getStiffnesses('Body'))
+       where motionProxy and memProxy refer to ALMotion and ALMemory
+  -->
+  <node pkg="naoqi_driver_py" type="naoqi_joint_states.py"
+        name="naoqi_joint_states" required="true"
+        args="--pip=$(arg nao_ip) --pport=$(arg nao_port)">
+    <param name="use_odometry" type="bool" value="$(arg use_odometry)" />
+  </node>
+
+  <!-- Node that publishes a NAOqi message to /rosout -->
+  <node pkg="naoqi_driver_py" type="naoqi_logger.py" name="nao_logger"
+        args="--pip=$(arg nao_ip) --pport=$(arg nao_port)" />
+
+  <!-- Node that sends walking commands to NAOqi based on subscriptions to ROS
+       topics. The topics subscribed to (and the NAOqi functions) are:
+       * /move_base_simple/goal (motionProxy.moveTo(x, y, yaw))
+       * /cmd_vel (motionProxy.moveToward(x, y, z))
+       This is replaced by nao_apps/walker.launch
+       Note: if uncommenting this, add double dash before pip and port
+  -->
+  <!-- <node pkg="naoqi_driver_py" type="naoqi_moveto.py" name="naoqi_moveto" -->
+  <!--       required="true" args="pip=$(arg nao_ip) pport=$(arg nao_port)" -->
+  <!--       output="screen"/> -->
+
+
+</launch>

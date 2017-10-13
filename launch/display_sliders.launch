@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!-- Adapted from nao_description/launch/display.launch -->
+
+<launch>
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(find nao_description)/urdf/naoV40_generated_urdf/nao_robot.xacro" />
+
+  <!-- complete robot model with base_footprint -->
+  <node pkg="nao_description" type="base_footprint" name="base_footprint" />
+
+  <!-- Load joint state publisher (sliders) and robot state publisher -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+
+  <arg name="gui" default="True" />
+  <param name="use_gui" value="$(arg gui)"/>
+  <!-- Load RViz -->
+  <arg name="config_file" value="$(find nao_utec)/config/nao_display_sliders.rviz"/>
+  <node name="rviz" pkg="rviz" type="rviz" respawn="false" output="screen" args="-d $(arg config_file)"/>
+</launch>

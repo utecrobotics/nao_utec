@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Default parameters -->
+  <arg name="nao_ip"   default="$(optenv NAO_IP 13.13.13.100)" />
+  <arg name="nao_port" default="$(optenv NAO_PORT 9559)" />
+  <arg name="config" default="nocam" />
+
+  <!-- Add diagnostics -->
+  <node pkg="diagnostic_aggregator" type="aggregator_node"
+        name="diag_agg" clear_params="true">
+    <rosparam command="load"
+              file="$(find nao_utec)/config/nao_analyzers.yaml" />
+  </node>
+
+  <!-- Upload NAO robot V40:
+       + URDF
+       + base_footprint and robot_state_publisher
+  -->
+  <include file="$(find nao_utec)/launch/nao_upload.launch" >
+  </include>
+
+  <!-- Run RViz for visualization:
+       use config:=nao_cam.launch or config:=nao_nocam.launch
+  -->
+  <arg name="config_file"
+       value="$(find nao_utec)/config/nao_$(arg config).rviz"/>
+  <node name="rviz_display" pkg="rviz" type="rviz" respawn="false"
+        output="screen" args="-d $(arg config_file)" />
+
+  <!-- Bridge NAOqi sensors to ROS
+       Publish /joint_states, /joint_stiffness, /odom, /imu from NAOqi to ROS
+       topics. Also add logs to /rosout
+       TODO: disable reading joint_stiffness here??
+  -->
+  <include file="$(find nao_utec)/launch/naoqi_driver.launch">
+    <arg name="nao_ip" value="$(arg nao_ip)" />
+  </include>
+
+  <!-- Enable walker -->
+  <include file="$(find nao_apps)/launch/walker.launch" >
+    <arg name="nao_ip" value="$(arg nao_ip)" />
+  </include>
+
+  <!-- Bridge ROS to NAOqi actuators, and some default poses
+       Provides services:
+       * body_stiffness/enable, body_stiffness/disable
+       * wakeup, rest (motionProxy.wakeup, rest)
+       * life/enable, life/disable (lifeProxy.setState solitary or disabled)
+       Subscribes to:
+       * /joint_angles (motionProxy.setAngles(joint_names,joint_angles,speed))
+       * /joint_stiffness (motionProxy.setStiffnesses)
+  -->
+  <include file="$(find naoqi_pose)/launch/pose_manager.launch" >
+    <arg name="nao_ip" value="$(arg nao_ip)" />
+    <arg name="nao_port" value="$(arg nao_port)" />
+  </include>
+
+  <!-- Publish NAOqi camera to ROS Topic (image_raw, camera_info) -->
+  <include file="$(find naoqi_sensors_py)/launch/camera.launch"
+           ns="nao_robot/camera/top" >
+    <arg name="nao_ip" value="$(arg nao_ip)" />
+  </include>
+  <include file="$(find naoqi_sensors_py)/launch/camera.launch"
+           ns="nao_robot/camera/bottom" >
+    <arg name="nao_ip" value="$(arg nao_ip)" />
+    <arg name="source" value="1" />
+  </include>
+
+  <!-- Speech
+       Topic: /speech
+  -->
+  <!-- <include file="$(find nao_apps)/launch/speech.launch" > -->
+  <!--   <arg name="nao_ip" value="$(arg nao_ip)" /> -->
+  <!-- </include> -->
+
+</launch>
