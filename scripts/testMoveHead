@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+#
+# Important note: this script dose not check joint limits, so, BE CAREFUL!
+#
+# To launch in simulation:
+#       naoqi --verbose --broker-ip 127.0.0.1
+#       roslaunch nao_utec nao_bringup.launch nao_ip:=127.0.0.1
+#       rosrun nao_utec testMoveHead
+#
+# To launch on the real robot:
+#        naoqi
+#        roslaunch nao_utec nao_bringup.launch nao_ip:=13.13.13.100
+#        rosservice call /body_stiffness/enable
+#        rosrun nao_utec testMoveHead
+#        rosservice call /body_stiffness/disable
+#
+
+
+import rospy
+from naoqi_bridge_msgs.msg import JointAnglesWithSpeed
+from sensor_msgs.msg import JointState
+
+
+# Publisher that sends the joint commands
+pub = rospy.Publisher("joint_angles", JointAnglesWithSpeed,
+                      queue_size=1000)
+
+
+def callbackFunction(jsensed_msg):
+
+    # Sensed values (all tuples by default)
+    jnames  = jsensed_msg.name
+    jsensed = jsensed_msg.position
+
+    # Message for the joint command
+    jcmd_msg = JointAnglesWithSpeed()
+    jcmd_msg.speed = 0.2
+    jcmd_msg.joint_names = jnames
+
+    # Desired joint values
+    q = list(jsensed)
+    q[0] = 0.5
+    q[1] = -0.4
+    jcmd_msg.joint_angles = q
+
+    # Publish the joint values
+    jcmd_msg.header.stamp = rospy.Time.now()
+    pub.publish(jcmd_msg)
+
+
+def main():
+    # Initialize ROS node
+    rospy.init_node('moveNode')
+
+    # Subscriber that reads the measured joint values
+    sub = rospy.Subscriber("/joint_states", JointState, callbackFunction)
+
+    # Spin
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
