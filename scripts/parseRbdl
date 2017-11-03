@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+#
+#  1) roslaunch nao_utec display_fixed.launch
+#  2) rosrun parseRbdl
+#
+#  To run iteratively:
+#  1) roslaunch nao_utec display_fixed.launch
+#  2) roscd nao_utec/scripts
+#  3) ipython -i parseRbdl
+#
+
+
+from markers import BallMarker, color
+import numpy as np
+import rbdl
+
+from roslib import packages
+import rospy
+
+from sensor_msgs.msg import JointState
+
+
+jnames = [
+    'HeadYaw', 'HeadPitch',
+    'LHipYawPitch', 'LHipRoll', 'LHipPitch', 'LKneePitch',
+    'LAnklePitch', 'LAnkleRoll',
+    'LShoulderPitch', 'LShoulderRoll', 'LElbowYaw', 'LElbowRoll',
+    'LWristYaw', 'LHand',
+    'RHipYawPitch', 'RHipRoll', 'RHipPitch', 'RKneePitch',
+    'RAnklePitch', 'RAnkleRoll',
+    'RShoulderPitch', 'RShoulderRoll', 'RElbowYaw', 'RElbowRoll',
+    'RWristYaw', 'RHand',
+    'RFinger23', 'RFinger13', 'RFinger12', 'LFinger21', 'LFinger13',
+    'LFinger11', 'RFinger22', 'LFinger22', 'RFinger21', 'LFinger12',
+    'RFinger11', 'LFinger23', 'LThumb1', 'RThumb1', 'RThumb2', 'LThumb2']
+q = [0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.7897633, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.7897633, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+model = []
+
+
+# Publish to Joint States (for rviz)
+pub = rospy.Publisher("/joint_states", JointState, queue_size=10)
+
+# Initialize a ROS node
+rospy.init_node('parseNode')
+
+robot_description = str(packages.get_pkg_dir("nao_utec"))
+full_model_name = robot_description + "/urdf/naoV40red.urdf"
+model = rbdl.loadModel(full_model_name)
+    
+# Number of degrees of freedom
+ndof = model.dof_count
+
+# Ball marker
+marker = BallMarker(color['GREEN'])
+    
+rate = rospy.Rate(10)
+while not rospy.is_shutdown():
+
+    # Position
+    q = np.zeros(ndof)
+    # Rhand: 26, Lhand: 14
+    nlink = 26
+    # Position
+    x = rbdl.CalcBodyToBaseCoordinates(model, q, nlink, np.zeros(3))
+    # Jacobian
+    J = np.zeros((6, ndof))
+    rbdl.CalcBodySpatialJacobian(model, q, nlink, np.zeros(3), J)
+    
+    # Markers
+    marker.xyz(x)
+    marker.publish()
+    
+    # Create message
+    msg = JointState()
+    msg.header.stamp = rospy.Time.now()
+    msg.name = jnames
+    msg.position = list(q) + 16*[0.,]
+    pub.publish(msg)
+    
+    rate.sleep()
+    
+
